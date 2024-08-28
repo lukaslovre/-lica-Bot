@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true, // Helps mend a few of the fences between CommonJS and ES Modules.
+    "skipLibCheck": true, // Skips checking the types of .d.ts files. This is important for performance, because otherwise all node_modules will be checked.
+    "target": "es2022", // The version of JavaScript you're targeting. I recommend es2022 over esnext for stability.
+    "allowJs": true, // Allows you to import .js and .json files.
+    "resolveJsonModule": true, // Allows you to import .js and .json files.
+    "moduleDetection": "force", // This option forces TypeScript to consider all files as modules. This helps to avoid 'cannot redeclare block-scoped variable' errors.
+    "isolatedModules": true, // This option prevents a few TS features which are unsafe when treating modules as isolated files.
+    "verbatimModuleSyntax": true, // This option forces you to use import type and export type, leading to more predictable behavior and fewer unnecessary imports.
+
+    "strict": true, // Enables all strict type checking options.
+    "noUncheckedIndexedAccess": true, // Prevents you from accessing an array or object without first checking if it's defined.
+    "noImplicitOverride": true, // Makes the override keyword actually useful in classes.
+
+    // If you're transpiling your code (creating JavaScript files) with tsc, you'll want these options:
+    "module": "NodeNext", // Tells TypeScript what module syntax to use. NodeNext is the best option for Node. moduleResolution: NodeNext is implied from this option.
+    "outDir": "dist" // Tells TypeScript where to put the compiled JavaScript files.
+  },
+  "include": ["src/**/*.ts"]
+  // "exclude": ["node_modules"]
+}
