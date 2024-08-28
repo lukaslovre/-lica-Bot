@@ -1,7 +1,7 @@
-// import { config } from "dotenv";
+import { config } from "dotenv";
 import TelegramBot from "node-telegram-bot-api";
 
-// config(); // Load environment variables from .env file
+config(); // Load environment variables from .env file
 
 const token = process.env.TELEGRAM_TOKEN as string;
 
