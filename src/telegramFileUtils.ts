@@ -1,9 +1,7 @@
-import { config } from "dotenv";
+// import { config } from "dotenv";
 import { bot } from "./TelegramBotSetup.js";
 
-config(); // Load environment variables from .env file
-
-// export function getTelegramFileUrl() {}
+// config(); // Load environment variables from .env file
 
 export async function getTelegramFileUrl(fileId: string) {
   const file = await bot.getFile(fileId);

@@ -1,7 +1,7 @@
-import { config } from "dotenv";
+// import { config } from "dotenv";
 import OpenAI from "openai";
 
-config();
+// config();
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
