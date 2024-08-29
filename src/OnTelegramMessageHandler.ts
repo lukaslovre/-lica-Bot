@@ -1,8 +1,10 @@
 import TelegramBot from "node-telegram-bot-api";
 import { sendTelegramMessage } from "./TelegramBotSetup.js";
 import { askQuestionAi } from "./OpenAi.js";
-import { userData } from "./index.js";
-import { updateUserData } from "./database/InitializeDb.js";
+import {
+  getTokenSpendingForUser,
+  insertTokenSpending,
+} from "./database/TokenSpendingModel.js";
 
 type TelegramOnListener = (
   message: TelegramBot.Message,
@@ -18,8 +20,12 @@ export const OnTelegramMessageHandler: TelegramOnListener = async (message, meta
   }
 
   if (message.text) {
-    if (message.text.startsWith("/ai ")) {
-      const questionForAi = message.text.slice(4);
+    if (message.text.startsWith("/ask ")) {
+      const questionForAi = message.text.slice("/ask ".length);
+
+      if (!questionForAi) {
+        return sendTelegramMessage(chatId, "No question provided.");
+      }
 
       try {
         const { answer, usedTokens } = await askQuestionAi(questionForAi);
@@ -33,35 +39,63 @@ export const OnTelegramMessageHandler: TelegramOnListener = async (message, meta
     }
 
     if (message.text.startsWith("/usage")) {
-      const userUsage = userData.find((user) => user.userId === userId);
+      try {
+        const userUsage = await getTokenSpendingForUser(userId);
 
-      if (!userUsage) {
-        return sendTelegramMessage(chatId, "No usage data found.");
+        const summedUsage = userUsage.reduce(
+          (acc, usage) => {
+            return {
+              input: acc.input + usage.input,
+              output: acc.output + usage.output,
+            };
+          },
+          {
+            input: 0,
+            output: 0,
+          }
+        );
+
+        const totalCost = costFromTokens(summedUsage);
+
+        return sendTelegramMessage(
+          chatId,
+          `Input: $${totalCost.input} (${summedUsage.input} tokens)\nOutput: $${
+            totalCost.output
+          } tokens (${summedUsage.output} tokens)\n\nTotal cost: $${
+            totalCost.input + totalCost.output
+          }`
+        );
+      } catch (error) {
+        return sendTelegramMessage(chatId, "Error fetching usage data.");
       }
 
-      const totalUsedTokens = userUsage.usage.reduce(
-        (acc, usage) => {
-          return {
-            input: acc.input + usage.input,
-            output: acc.output + usage.output,
-          };
-        },
-        {
-          input: 0,
-          output: 0,
-        }
-      );
+      // if (!userUsage) {
+      //   return sendTelegramMessage(chatId, "No usage data found.");
+      // }
 
-      const totalCost = costFromTokens(totalUsedTokens);
+      // const totalUsedTokens = userUsage.usage.reduce(
+      //   (acc, usage) => {
+      //     return {
+      //       input: acc.input + usage.input,
+      //       output: acc.output + usage.output,
+      //     };
+      //   },
+      //   {
+      //     input: 0,
+      //     output: 0,
+      //   }
+      // );
 
-      return sendTelegramMessage(
-        chatId,
-        `Input: $${totalCost.input} (${totalUsedTokens.input} tokens)\nOutput: $${
-          totalCost.output
-        } tokens (${totalUsedTokens.output} tokens)\n\nTotal cost: $${
-          totalCost.input + totalCost.output
-        }`
-      );
+      // const totalCost = costFromTokens(totalUsedTokens);
+
+      // return sendTelegramMessage(
+      //   chatId,
+      //   `Input: $${totalCost.input} (${totalUsedTokens.input} tokens)\nOutput: $${
+      //     totalCost.output
+      //   } tokens (${totalUsedTokens.output} tokens)\n\nTotal cost: $${
+      //     totalCost.input + totalCost.output
+      //   }`
+      // );
     }
   }
 };
@@ -74,15 +108,9 @@ function updateUsage(
     output: number;
   }
 ) {
-  let userUsage = userData.find((user) => user.userId === userId);
-
-  if (!userUsage) {
-    userData.push({ userId, usage: [usedTokens] });
-    updateUserData({ userId, usage: [usedTokens] });
-  } else {
-    userUsage.usage.push(usedTokens);
-    updateUserData(userUsage);
-  }
+  insertTokenSpending(userId, usedTokens.input, usedTokens.output).catch((error) => {
+    console.error("Error updating usage data:", error);
+  });
 }
 
 function costFromTokens(usedTokens: { input: number; output: number }) {

@@ -1,7 +1,7 @@
-type UserData = {
-  userId: number;
-  usage: {
-    input: number;
-    output: number;
-  }[];
-};
+// type UserData = {
+//   userId: number;
+//   usage: {
+//     input: number;
+//     output: number;
+//   }[];
+// };
