@@ -1,9 +1,15 @@
 import TelegramBot from "node-telegram-bot-api";
-import { sendTelegramMessage } from "./TelegramBotSetup.js";
+import { sendTelegramImage, sendTelegramMessage } from "./TelegramBotSetup.js";
 import { askQuestionAi, sendToAi, twoMessagesAi } from "./OpenAi.js";
 
 import { handleAskCommand } from "./message_commands/AskCommand.js";
 import { handleUsageCommand } from "./message_commands/UsageCommand.js";
+import { generateImage } from "./OpenAi/generateImage.js";
+import { insertSpending } from "./database/Spending.js";
+import { tokensToDollars } from "./OpenAi/tokensToDollars.js";
+import { getTelegramFileUrl } from "./telegramFileUtils.js";
+import type { ImageModel } from "openai/src/resources/images.js";
+import { askAboutImage } from "./OpenAi/askAboutImage.js";
 
 type TelegramOnListener = (
   message: TelegramBot.Message,
@@ -23,8 +29,43 @@ export const OnTelegramMessageHandler: TelegramOnListener = async (message, meta
         const question = message.text.replace("/ask ", "");
 
         try {
-          const response = await twoMessagesAi(replyToMessage, question);
-          return sendTelegramMessage(chatId, response);
+          const { answer, usedTokens, usedModel } = await twoMessagesAi(
+            replyToMessage,
+            question
+          );
+
+          const cost = tokensToDollars(usedTokens, usedModel);
+
+          insertSpending(userId, cost);
+
+          return sendTelegramMessage(chatId, answer);
+        } catch (error) {
+          console.error(error);
+          return sendTelegramMessage(chatId, "Error: " + error);
+        }
+      } else if (message.reply_to_message?.photo) {
+        // If the replyed to message is a photo.
+        try {
+          // The photo with the mediumest width.
+          const photo = message.reply_to_message.photo.sort((a, b) => a.width - b.width)[
+            Math.floor(message.reply_to_message.photo.length / 2)
+          ];
+
+          const photoUrl = await getTelegramFileUrl(photo?.file_id || "");
+
+          const question = message.text.replace("/ask ", "");
+
+          const { answer, usedTokens, usedModel } = await askAboutImage(
+            photoUrl,
+            question,
+            "gpt-4o-2024-08-06"
+          );
+
+          const cost = tokensToDollars(usedTokens, usedModel);
+
+          insertSpending(userId, cost);
+
+          return sendTelegramMessage(chatId, answer);
         } catch (error) {
           console.error(error);
           return sendTelegramMessage(chatId, "Error: " + error);
@@ -89,6 +130,32 @@ export const OnTelegramMessageHandler: TelegramOnListener = async (message, meta
           console.error(error);
           return sendTelegramMessage(chatId, "Error: " + error);
         }
+      }
+    }
+
+    if (message.text.startsWith("/nacrtaj ") || message.text.startsWith("/uslikaj ")) {
+      // "/nacrtaj " === 9 characters
+      // "/uslikaj " === 9 characters
+      const prompt = message.text.slice(9);
+
+      if (prompt.length < 5) {
+        return sendTelegramMessage(chatId, "Please provide a longer prompt.");
+      }
+
+      try {
+        const model: ImageModel = message.text.startsWith("/nacrtaj ")
+          ? "dall-e-2"
+          : "dall-e-3";
+
+        const { url: imageUrl, cost } = await generateImage(prompt, model);
+
+        insertSpending(userId, cost);
+
+        return sendTelegramImage(chatId, imageUrl, {
+          caption: `Cost: $${cost.toFixed(2)}`,
+        });
+      } catch (error) {
+        return sendTelegramMessage(chatId, "Error: " + error);
       }
     }
   }

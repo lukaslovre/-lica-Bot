@@ -7,9 +7,6 @@ config();
 
 initializeDatabase();
 
-// Telegram bot message handler
-bot.on("message", OnTelegramMessageHandler);
-
 bot.setMyCommands([
   { command: "ask", description: "Ask a question to the AI model." },
   { command: "usage", description: "Get usage statistics." },
@@ -22,3 +19,6 @@ bot.setMyCommands([
     description: "Ask the AI to fact-check the tagged message.",
   },
 ]);
+
+// Telegram bot message handler
+bot.on("message", OnTelegramMessageHandler);

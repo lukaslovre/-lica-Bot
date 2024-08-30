@@ -1,5 +1,6 @@
-import { insertTokenSpending } from "../database/TokenSpendingModel.js";
+import { insertSpending } from "../database/Spending.js";
 import { askQuestionAi } from "../OpenAi.js";
+import { tokensToDollars } from "../OpenAi/tokensToDollars.js";
 import { sendTelegramMessage } from "../TelegramBotSetup.js";
 
 export async function handleAskCommand(
@@ -14,10 +15,12 @@ export async function handleAskCommand(
   }
 
   try {
-    const { answer, usedTokens } = await askQuestionAi(questionForAi);
+    const { answer, usedTokens, usedModel } = await askQuestionAi(questionForAi);
 
-    insertTokenSpending(userId, usedTokens.input, usedTokens.output).catch((error) => {
-      console.error("Error updating usage data in database:", error);
+    const cost = tokensToDollars(usedTokens, usedModel);
+
+    insertSpending(userId, cost).catch((error) => {
+      console.error("Error updating spending data in database:", error);
     });
 
     return sendTelegramMessage(chatId, answer);

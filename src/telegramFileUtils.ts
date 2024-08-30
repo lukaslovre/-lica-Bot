@@ -4,6 +4,8 @@ import { bot } from "./TelegramBotSetup.js";
 // config(); // Load environment variables from .env file
 
 export async function getTelegramFileUrl(fileId: string) {
+  if (!fileId) throw new Error("File ID is empty");
+
   const file = await bot.getFile(fileId);
 
   console.log(file);

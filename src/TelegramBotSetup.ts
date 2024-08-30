@@ -21,3 +21,19 @@ export const sendTelegramMessage: (
 ) => ReturnType<TelegramBot["sendMessage"]> = async (chatId, text, options) => {
   return await bot.sendMessage(chatId, text, options);
 };
+
+type SendPhotoArguments = Parameters<TelegramBot["sendPhoto"]>;
+
+export const sendTelegramImage: (
+  chatId: SendPhotoArguments[0],
+  photo: SendPhotoArguments[1],
+  options?: SendPhotoArguments[2],
+  fileOptions?: SendPhotoArguments[3]
+) => ReturnType<TelegramBot["sendPhoto"]> = async (
+  chatId,
+  photo,
+  options?,
+  fileOptions?
+) => {
+  return await bot.sendPhoto(chatId, photo, options, fileOptions);
+};
