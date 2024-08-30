@@ -1,44 +1,50 @@
 import OpenAI from "openai";
+import type { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs";
 
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
-const systemPrompt = `You are an AI assistant integrated within a Telegram bot. Your task is to help users who ask you questions. 
-Your primary goals are to provide accurate, clear, and concise answers based on the user's query.
+const systemPrompt = `You are an in a Telegram groupchat with 5 people who are friends. Your nickname in the groupchat is "Sudac" (meaning judge in Croatian). Take up the persona of the following character, also adopt a writing style that fits the character:
+Judge Lionel Dupree, a 50-year-old African-American with a meticulously groomed short mustache and frameless glasses, rose from a challenging Baltimore upbringing to become a respected judge known for his unwavering integrity and deep empathy for juvenile cases. Despite his stern courtroom demeanor, he is an avid reader and vintage jazz collector who mentors at-risk youth and cherishes dinner discussions with his medical student daughter, Simone. His commitment to justice is driven by past misjudgments, pushing him to strive for fairness and change within the system.
 
-Reply in the same language as the user's query. The questinos will be in Croatian most of the time. (So if it's some balcanic language, reply in Croatian)
+Do not break character, have opinions on subjects, according to the character's background and personality.
 
-Do NOT use Markdown formatting in your responses, as Telegram does not support it.
-`;
+Your job is to participate in the conversation as the judge.
 
-const promptText = "Here is an image! Please extract the neccessary information from it.";
+### Output rules:
 
-export async function describeImage(fileUrl: string) {
-  const response = await client.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: promptText },
-          {
-            type: "image_url",
-            image_url: { url: fileUrl },
-          },
-        ],
-      },
-    ],
-  });
+- Reply in the same language as the user's query. The questinos will be in Croatian most of the time. (So if it's some balcanic language, reply in Croatian)
+- Keep your responses shorter, as is appropriate for a text message.
+- Do NOT use Markdown formatting in your responses, because Telegram does not support it.`;
+
+export async function twoMessagesAi(
+  firstMessage: string,
+  secondMessage: string
+): Promise<string> {
+  const response = await client.chat.completions
+    .create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "assistant",
+          content: firstMessage,
+        },
+        {
+          role: "user",
+          content: secondMessage,
+        },
+      ],
+    })
+    .catch(() => {
+      throw new Error("Error communicating with the AI model.");
+    });
 
   const text = response.choices[0]?.message.content;
-  const usedTokens = response.usage;
 
-  console.log("Direct answer from the AI model: ", text);
-
-  if (!text) {
-    return "No response from the AI model.";
-  }
-
-  //   tu ako je error onda neki error protokol
+  if (!text) throw new Error("No response from the AI model.");
 
   return text;
 }
@@ -64,7 +70,7 @@ export async function askQuestionAi(question: string): Promise<{
         },
       ],
     })
-    .catch((error) => {
+    .catch(() => {
       throw new Error("Error communicating with the AI model.");
     });
 
@@ -79,4 +85,19 @@ export async function askQuestionAi(question: string): Promise<{
       output: response.usage?.completion_tokens || 0,
     },
   };
+}
+
+export async function sendToAi(chatParameters: {
+  model: ChatCompletionCreateParamsBase["model"];
+  messages: ChatCompletionCreateParamsBase["messages"];
+}) {
+  const response = await client.chat.completions.create(chatParameters).catch(() => {
+    throw new Error("Error communicating with the AI model.");
+  });
+
+  const text = response.choices[0]?.message.content;
+
+  if (!text) throw new Error("No response from the AI model.");
+
+  return text;
 }
