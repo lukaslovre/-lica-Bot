@@ -18,7 +18,18 @@ bot.setMyCommands([
     command: "cap",
     description: "Ask the AI to fact-check the tagged message.",
   },
+  {
+    command: "nacrtaj",
+    description: "Uses DALL-E 2 to draw an image based on the text.",
+  },
+  {
+    command: "uslikaj",
+    description: "Uses DALL-E 3 to draw an image based on the text.",
+  },
 ]);
+
+// Ideas for new commands:
+// - ""
 
 // Telegram bot message handler
 bot.on("message", OnTelegramMessageHandler);

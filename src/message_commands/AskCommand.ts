@@ -1,13 +1,11 @@
+import type { User } from "node-telegram-bot-api";
 import { insertSpending } from "../database/Spending.js";
-import { askQuestionAi } from "../OpenAi.js";
+import { sendToAi, systemPrompt } from "../OpenAi.js";
 import { tokensToDollars } from "../OpenAi/tokensToDollars.js";
 import { sendTelegramMessage } from "../TelegramBotSetup.js";
+import type { ChatModel } from "openai/resources/index.mjs";
 
-export async function handleAskCommand(
-  chatId: number,
-  userId: number,
-  messageText: string
-) {
+export async function handleAskCommand(chatId: number, user: User, messageText: string) {
   const questionForAi = messageText.slice("/ask ".length);
 
   if (!questionForAi) {
@@ -15,15 +13,36 @@ export async function handleAskCommand(
   }
 
   try {
-    const { answer, usedTokens, usedModel } = await askQuestionAi(questionForAi);
+    // const { answer, usedTokens, usedModel } = await askQuestionAi(questionForAi);
+    const model: ChatModel = "gpt-4o-2024-08-06";
 
-    const cost = tokensToDollars(usedTokens, usedModel);
+    const { text, tokens } = await sendToAi({
+      model: model,
+      messages: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: `${user.first_name.toUpperCase()}:\n\n${questionForAi}`,
+        },
+      ],
+    });
 
-    insertSpending(userId, cost).catch((error) => {
+    const cost = tokensToDollars(
+      {
+        input: 0,
+        output: tokens || 0,
+      },
+      model
+    );
+
+    insertSpending(user.id, cost).catch((error) => {
       console.error("Error updating spending data in database:", error);
     });
 
-    return sendTelegramMessage(chatId, answer);
+    return sendTelegramMessage(chatId, text);
   } catch (error) {
     return sendTelegramMessage(chatId, error as string);
   }

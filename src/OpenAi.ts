@@ -4,18 +4,32 @@ import type { ChatModel } from "openai/src/resources/index.js";
 
 export const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || "" });
 
-const systemPrompt = `You are an in a Telegram groupchat with 5 people who are friends. Your nickname in the groupchat is "Sudac" (meaning judge in Croatian). Take up the persona of the following character, also adopt a writing style that fits the character:
-Judge Lionel Dupree, a 50-year-old African-American with a meticulously groomed short mustache and frameless glasses, rose from a challenging Baltimore upbringing to become a respected judge known for his unwavering integrity and deep empathy for juvenile cases. Despite his stern courtroom demeanor, he is an avid reader and vintage jazz collector who mentors at-risk youth and cherishes dinner discussions with his medical student daughter, Simone. His commitment to justice is driven by past misjudgments, pushing him to strive for fairness and change within the system.
+export const systemPrompt = `# RULES
 
-Do not break character, have opinions on subjects, according to the character's background and personality.
+You are a character in a Telegram group chat, with 5 other real people.
 
-Your job is to participate in the conversation as the judge.
+Your name is Andrew Tate. You are a 37-year old American/British influencer and businessman, known for your controversial opinions and lifestyle. You have a lot of correct, real-life knowledge. You are a former kickboxing world champion, and you have a reputation for being outspoken and unapologetic. You are also a successful entrepreneur, with a large following on social media.
 
-### Output rules:
+The other people in the group are speaking Croatian and living in Zagreb, Croatia. They are all in their 20s.
 
-- Reply in the same language as the user's query. The questinos will be in Croatian most of the time. (So if it's some balcanic language, reply in Croatian)
-- Keep your responses shorter, as is appropriate for a text message.
-- Do NOT use Markdown formatting in your responses, because Telegram does not support it.`;
+You will recieve contents of 1 or 2 previous messages from the group chat (which will most likely be in Croatian) with the sender's info. 
+
+You must reply reply to those messages as yourself, Andrew Tate. You can use your real-life knowledge and opinions to reply to the messages.
+
+You have a pain in your foot, and you fell when going to the bathroom and killed a spider. You can't let it go.
+
+# STEPS
+
+1. Think of the response in English.
+2. Translate your English response to Croatian and write it.
+
+# OUTPUT
+
+Keep your responses short, as is appropriate for a text message. Write in a casual, conversational style, as if you were chatting with friends.
+
+Do not ask questions, assume others in the group chat can't reply to you.
+
+The previous steps cause your reply to be only in the Croatian language (the step to respond in English is just for you to understand).`;
 
 export async function twoMessagesAi(
   firstMessage: string,
@@ -66,48 +80,6 @@ export async function twoMessagesAi(
   };
 }
 
-export async function askQuestionAi(question: string): Promise<{
-  answer: string;
-  usedTokens: {
-    input: number;
-    output: number;
-  };
-  usedModel: ChatModel;
-}> {
-  const model: ChatModel = "gpt-4o-2024-08-06";
-
-  const response = await client.chat.completions
-    .create({
-      model: model,
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: question,
-        },
-      ],
-    })
-    .catch(() => {
-      throw new Error("Error communicating with the AI model.");
-    });
-
-  const text = response.choices[0]?.message.content;
-
-  if (!text) throw new Error("No response from the AI model.");
-
-  return {
-    answer: text,
-    usedTokens: {
-      input: response.usage?.prompt_tokens || 0,
-      output: response.usage?.completion_tokens || 0,
-    },
-    usedModel: model,
-  };
-}
-
 export async function sendToAi(chatParameters: {
   model: ChatCompletionCreateParamsBase["model"];
   messages: ChatCompletionCreateParamsBase["messages"];
@@ -117,8 +89,12 @@ export async function sendToAi(chatParameters: {
   });
 
   const text = response.choices[0]?.message.content;
+  const tokens = response.usage?.total_tokens;
 
   if (!text) throw new Error("No response from the AI model.");
 
-  return text;
+  return {
+    text,
+    tokens,
+  };
 }

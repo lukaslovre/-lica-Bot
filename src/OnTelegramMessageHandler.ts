@@ -1,6 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { sendTelegramImage, sendTelegramMessage } from "./TelegramBotSetup.js";
-import { askQuestionAi, sendToAi, twoMessagesAi } from "./OpenAi.js";
+import { sendToAi, systemPrompt, twoMessagesAi } from "./OpenAi.js";
 
 import { handleAskCommand } from "./message_commands/AskCommand.js";
 import { handleUsageCommand } from "./message_commands/UsageCommand.js";
@@ -10,6 +10,7 @@ import { tokensToDollars } from "./OpenAi/tokensToDollars.js";
 import { getTelegramFileUrl } from "./telegramFileUtils.js";
 import type { ImageModel } from "openai/src/resources/images.js";
 import { askAboutImage } from "./OpenAi/askAboutImage.js";
+import type { ChatModel } from "openai/resources/index.mjs";
 
 type TelegramOnListener = (
   message: TelegramBot.Message,
@@ -18,27 +19,51 @@ type TelegramOnListener = (
 
 export const OnTelegramMessageHandler: TelegramOnListener = async (message, metadata) => {
   const chatId = message.chat.id;
-  const userId = message.from?.id;
+  const user = message.from;
+  const userId = user?.id;
 
   if (!userId) return sendTelegramMessage(chatId, "User ID not found.");
 
   if (message.text) {
     if (message.text.startsWith("/ask ")) {
       if (message.reply_to_message?.text) {
-        const replyToMessage = message.reply_to_message.text;
+        const replyToMessage = message.reply_to_message;
         const question = message.text.replace("/ask ", "");
 
-        try {
-          const { answer, usedTokens, usedModel } = await twoMessagesAi(
-            replyToMessage,
-            question
-          );
+        const model: ChatModel = "gpt-4o-2024-08-06";
 
-          const cost = tokensToDollars(usedTokens, usedModel);
+        try {
+          const { text, tokens } = await sendToAi({
+            model: model,
+            messages: [
+              {
+                role: "system",
+                content: systemPrompt,
+              },
+              {
+                role: replyToMessage.from?.is_bot ? "assistant" : "user",
+                content: `${replyToMessage.from?.first_name.toUpperCase()}:\n\n${
+                  replyToMessage.text
+                }`,
+              },
+              {
+                role: "user",
+                content: `${user.first_name.toUpperCase()}:\n\n${question}`,
+              },
+            ],
+          });
+
+          const cost = tokensToDollars(
+            {
+              input: 0,
+              output: tokens || 0,
+            },
+            model
+          );
 
           insertSpending(userId, cost);
 
-          return sendTelegramMessage(chatId, answer);
+          return sendTelegramMessage(chatId, text);
         } catch (error) {
           console.error(error);
           return sendTelegramMessage(chatId, "Error: " + error);
@@ -71,7 +96,7 @@ export const OnTelegramMessageHandler: TelegramOnListener = async (message, meta
           return sendTelegramMessage(chatId, "Error: " + error);
         }
       } else {
-        return handleAskCommand(chatId, userId, message.text);
+        return handleAskCommand(chatId, user, message.text);
       }
     }
 
@@ -81,21 +106,21 @@ export const OnTelegramMessageHandler: TelegramOnListener = async (message, meta
 
     if (message.text.startsWith("/procjena")) {
       if (message.reply_to_message?.text) {
-        const text = message.reply_to_message.text;
+        const userMessage = message.reply_to_message.text;
 
         const systemPrompt =
           "Decide if the users message is illogical or weird or if it's written weirdly.\n\nRespond weird on not weird, but think of one sentence.";
 
         try {
-          const response = await sendToAi({
+          const { text, tokens } = await sendToAi({
             model: "gpt-4o",
             messages: [
               { role: "system", content: systemPrompt },
-              { role: "user", content: text },
+              { role: "user", content: userMessage },
             ],
           });
 
-          return sendTelegramMessage(chatId, response);
+          return sendTelegramMessage(chatId, text);
         } catch (error) {
           console.error(error);
           return sendTelegramMessage(chatId, "Error: " + error);
@@ -125,7 +150,7 @@ export const OnTelegramMessageHandler: TelegramOnListener = async (message, meta
             ],
           });
 
-          return sendTelegramMessage(chatId, response);
+          return sendTelegramMessage(chatId, response.text);
         } catch (error) {
           console.error(error);
           return sendTelegramMessage(chatId, "Error: " + error);
